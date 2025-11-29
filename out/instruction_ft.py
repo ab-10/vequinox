@@ -7,7 +7,7 @@ from shared import PREFIX
 
 
 MODEL_NAME = "Qwen/Qwen3-0.6B"
-SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code. /no_think"
+SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code."
 NUM_EPOCHS = 50
 DATASET_NAME = "xingxm/SVGX-Core-250k"
 
@@ -21,7 +21,7 @@ wandb.init(
     },
 )
 
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
 tokenizer.chat_template = tokenizer.chat_template.replace(
@@ -34,12 +34,12 @@ if tokenizer.pad_token is None:
 ds = load_dataset(DATASET_NAME)
 example = ds["train"][0]
 
-user_prompt = example["qwen_caption"]
 target_svg = example["svg_code"]
+
+SYS_PROMPT = "Generate an SVG image of the following object: " + example["name"]
 
 messages_prompt = [
     {"role": "system", "content": SYS_PROMPT},
-    {"role": "user", "content": user_prompt},
 ]
 
 messages_full = messages_prompt + [
@@ -82,6 +82,7 @@ class SingleExampleDataset(torch.utils.data.Dataset):
 
 train_dataset = SingleExampleDataset()
 
+
 training_args = TrainingArguments(
     output_dir="./instruction-ft-checkpoints",
     overwrite_output_dir=True,
@@ -94,6 +95,7 @@ training_args = TrainingArguments(
     learning_rate=1e-4,
     weight_decay=0.0,
     remove_unused_columns=False,
+    torch_dtype=torch.bfloat16
 )
 
 trainer = Trainer(
@@ -105,6 +107,6 @@ trainer = Trainer(
 
 print("=== Running instruction fine-tuning on a single example ===")
 print("Dataset:", DATASET_NAME)
-print("User prompt:", user_prompt)
+print("System prompt:", SYS_PROMPT)
 trainer.train()
 
