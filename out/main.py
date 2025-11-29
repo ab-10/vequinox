@@ -12,7 +12,7 @@ CONSTANT_PROMPT = [
     {"role": "system", "content": SYS_PROMPT},
     {"role": "user", "content": "Generate SVG image of an apple"},
 ]
-NUM_SAMPLES = 2
+NUM_SAMPLES = 1000
 wandb.init(
     project="vequinox",
     name="apple-run-001", # TODO: change to document unique runs
@@ -35,7 +35,7 @@ config = OnlineDPOConfig(
     output_dir="./vequinox-checkpoints",
     # wandb integration
     report_to="wandb",
-    logging_steps=1,
+    logging_steps=5,
     max_new_tokens=512,
     max_length=1024,
 )
