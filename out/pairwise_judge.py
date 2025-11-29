@@ -4,7 +4,6 @@ from trl import BasePairwiseJudge
 from scoring import load_clip, score_svg
 import torch
 import re
-import wandb
 from shared import PREFIX
 
 
@@ -53,7 +52,6 @@ the pelican should be properly nested on the bicycle.
             # import pdb
 
             # pdb.set_trace()
-            print(comp_a)
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
             if svg_a is None:
