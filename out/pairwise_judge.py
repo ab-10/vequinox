@@ -23,12 +23,15 @@ the pelican should be properly nested on the bicycle.
     @staticmethod
     def _extract_svg_from_completion(completion):
         # Extract content between triple backticks
-        match = re.search(r"```\w*\n?(.*?)(?:\n?```)?$", completion, re.DOTALL)
+        match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
         return match.group(1) if match else None
 
     def judge(self, prompts, completions, shuffle_order=True):
         results = []
         for _, (comp_a, comp_b) in zip(prompts, completions):
+            # import pdb
+
+            # pdb.set_trace()
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
             if svg_a is None:
@@ -39,11 +42,11 @@ the pelican should be properly nested on the bicycle.
                 print(f"could not extract svg from {comp_b}")
                 results.append(-1)
                 continue
-            _, scores = score_svg(
+            score_dict = score_svg(
                 [svg_a, svg_b],
                 self.CLIP_JUDGE_PROMPT,
                 self.clip_processor,
                 self.clip_model,
             )
-            results.append(int(scores.argmax().item()))
+            results.append(int(score_dict["scores"].argmax().item()))
         return results
