@@ -13,7 +13,7 @@ from shared import LOCAL_DATASET_PATH, MAX_SVG_LENGTH, PREFIX
 MODEL_NAME = "Qwen/Qwen3-0.6B"
 SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code."
 NUM_EPOCHS = 50
-DATASET_NAME = "xingxm/SVGX-Core-250k"
+DATASET_NAME = LOCAL_DATASET_PATH
 
 
 wandb.init(
@@ -45,31 +45,68 @@ def svg_to_pil(svg_text, width=512, height=512):
     return Image.open(io.BytesIO(png_data))
 
 
+ds = load_from_disk(LOCAL_DATASET_PATH)
+# ds = load_dataset(DATASET_NAME)
 
-# ds = load_from_disk(LOCAL_DATASET_PATH)
-ds = load_dataset(DATASET_NAME)
 
-example = None
-for potential_example in ds["train"]:
-    if len(potential_example["svg_code"]) <= MAX_SVG_LENGTH:
-        example = potential_example
-        break
+class InstructionDataset(torch.utils.data.Dataset):
+    def __init__(self, hf_dataset):
+        self.dataset = hf_dataset
 
-if example is None:
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        example = self.dataset[idx]
+        sys_prompt = "Generate an SVG image of the following object: " + example["name"]
+
+        messages_prompt = [
+            {"role": "system", "content": sys_prompt},
+        ]
+
+        messages_full = messages_prompt + [
+            {"role": "assistant", "content": example["svg_code"]},
+        ]
+
+        prompt_ids_local = tokenizer.apply_chat_template(
+            messages_prompt,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_tensors="pt",
+        )
+
+        full_ids_local = tokenizer.apply_chat_template(
+            messages_full,
+            tokenize=True,
+            add_generation_prompt=False,
+            return_tensors="pt",
+        )
+
+        input_ids = full_ids_local[0]
+        labels = input_ids.clone()
+
+        prompt_length_local = prompt_ids_local.shape[1]
+        labels[:prompt_length_local] = -100
+
+        return {
+            "input_ids": input_ids,
+            "labels": labels,
+        }
+
+
+train_dataset = InstructionDataset(ds["train"])
+
+if len(train_dataset) == 0:
     raise ValueError(
-        f"No example found with SVG code length less than or equal to {MAX_SVG_LENGTH}"
+        f"No examples found in the train split at {LOCAL_DATASET_PATH}"
     )
 
+example = ds["train"][0]
 target_svg = example["svg_code"]
-
-SYS_PROMPT = "Generate an SVG image of the following object: " + example["name"]
+eval_sys_prompt = "Generate an SVG image of the following object: " + example["name"]
 
 messages_prompt = [
-    {"role": "system", "content": SYS_PROMPT},
-]
-
-messages_full = messages_prompt + [
-    {"role": "assistant", "content": target_svg},
+    {"role": "system", "content": eval_sys_prompt},
 ]
 
 prompt_ids = tokenizer.apply_chat_template(
@@ -79,34 +116,7 @@ prompt_ids = tokenizer.apply_chat_template(
     return_tensors="pt",
 )
 
-full_ids = tokenizer.apply_chat_template(
-    messages_full,
-    tokenize=True,
-    add_generation_prompt=False,
-    return_tensors="pt",
-)
-
-input_ids = full_ids[0]
-labels = input_ids.clone()
-
 prompt_length = prompt_ids.shape[1]
-labels[:prompt_length] = -100
-
-train_example = {
-    "input_ids": input_ids,
-    "labels": labels,
-}
-
-
-class SingleExampleDataset(torch.utils.data.Dataset):
-    def __len__(self):
-        return 1
-
-    def __getitem__(self, idx):
-        return train_example
-
-
-train_dataset = SingleExampleDataset()
 
 
 training_args = TrainingArguments(
@@ -130,9 +140,10 @@ trainer = Trainer(
     tokenizer=tokenizer,
 )
 
-print("=== Running instruction fine-tuning on a single example ===")
+print("=== Running instruction fine-tuning on full train split ===")
+print("Number of training examples:", len(train_dataset))
 print("Dataset:", DATASET_NAME)
-print("System prompt:", SYS_PROMPT)
+print("System prompt template:", SYS_PROMPT)
 trainer.train()
 
 model.eval()
@@ -145,6 +156,9 @@ with torch.no_grad():
 
 generated_tokens = generated_ids[0][prompt_length:]
 generated_svg = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
+print("Sample generated SVG:")
+print(generated_svg)
 
 try:
     target_image = svg_to_pil(target_svg)
