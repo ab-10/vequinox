@@ -1,7 +1,7 @@
 import io
 
 import wandb
-from datasets import load_from_disk
+from datasets import load_from_disk, load_dataset
 from PIL import Image
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
@@ -20,7 +20,7 @@ wandb.init(
     project="vequinox",
     config={
         "base_model": MODEL_NAME,
-        "dataset": LOCAL_DATASET_PATH,
+        "dataset": DATASET_NAME,
         "num_epochs": NUM_EPOCHS,
     },
 )
@@ -45,12 +45,15 @@ def svg_to_pil(svg_text, width=512, height=512):
     return Image.open(io.BytesIO(png_data))
 
 
-ds = load_from_disk(LOCAL_DATASET_PATH)
+
+# ds = load_from_disk(LOCAL_DATASET_PATH)
+ds = load_dataset(DATASET_NAME)
 
 example = None
 for potential_example in ds["train"]:
     if len(potential_example["svg_code"]) <= MAX_SVG_LENGTH:
         example = potential_example
+        break
 
 if example is None:
     raise ValueError(
@@ -118,7 +121,6 @@ training_args = TrainingArguments(
     learning_rate=1e-4,
     weight_decay=0.0,
     remove_unused_columns=False,
-    torch_dtype=torch.bfloat16,
 )
 
 trainer = Trainer(
