@@ -22,11 +22,18 @@ the pelican should be properly nested on the bicycle.
     def to(self, device: torch.device):
         self.clip_model = self.clip_model.to(device)
 
+    SVG_EXTRACTION_PATTERNS = [
+        r"```\w*\n?(.*?)(?:```|$)",  # Content between triple backticks
+        r"(<svg>.*?</svg>)",  # Content between <svg> tags
+    ]  # ordered list
+
     @staticmethod
     def _extract_svg_from_completion(completion):
-        # Extract content between triple backticks
-        match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
-        return match.group(1) if match else None
+        for pattern in PairwiseJudge.SVG_EXTRACTION_PATTERNS:
+            match = re.search(pattern, completion, re.DOTALL)
+            if match:
+                return match.group(1)
+        return None
 
     def postprocess_completion(self, completion):
         if completion.startswith("Assistant:"):
