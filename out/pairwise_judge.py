@@ -4,6 +4,7 @@ from trl import BasePairwiseJudge
 from scoring import load_clip, score_svg
 import torch
 import re
+from shared import PREFIX
 
 
 class PairwiseJudge(BasePairwiseJudge):
@@ -26,12 +27,22 @@ the pelican should be properly nested on the bicycle.
         match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
         return match.group(1) if match else None
 
+    def postprocess_completion(self, completion):
+        if completion.startswith("Assistant:"):
+            print("Rogue 'Assistant:' prefix found in completion. Removing it.")
+            print(completion)
+            completion = completion.lstrip("Assistant:")
+        return PREFIX + completion
+
     def judge(self, prompts, completions, shuffle_order=True):
+        completions = [[self.postprocess_completion(a), self.postprocess_completion(b)] for (a, b) in completions]
+
         results = []
-        for _, (comp_a, comp_b) in zip(prompts, completions):
+        for comp_a, comp_b in completions:
             # import pdb
 
             # pdb.set_trace()
+            print(comp_a)
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
             if svg_a is None:
