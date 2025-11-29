@@ -45,7 +45,6 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
         except xml.etree.ElementTree.ParseError:
             print(f"could not parse svg:\n{svg}")
 
-
     clip_inputs = clip_processor(text=[prompt], images=images, return_tensors="pt")
     clip_inputs = {k: v.to(clip_model.device) for k, v in clip_inputs.items()}
 
