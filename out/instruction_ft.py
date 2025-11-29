@@ -151,7 +151,7 @@ model.eval()
 with torch.no_grad():
     generated_ids = model.generate(
         prompt_ids.to(model.device),
-        max_new_tokens=512,
+        max_new_tokens=1000,
     )
 
 generated_tokens = generated_ids[0][prompt_length:]
