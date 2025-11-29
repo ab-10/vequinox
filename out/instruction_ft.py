@@ -35,7 +35,7 @@ ds = load_dataset(DATASET_NAME)
 
 example = None
 for potential_example in ds["train"]:
-    if len(example["svg_code"]) < 1000:
+    if len(potential_example["svg_code"]) < 1000:
         example = potential_example
 
 if example is None:
