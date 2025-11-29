@@ -7,15 +7,15 @@ from pairwise_judge import PairwiseJudge
 from shared import PREFIX
 
 MODEL_NAME = "Qwen/Qwen3-0.6B"
-SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code. /no_think"
+SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code."
 CONSTANT_PROMPT = [
     {"role": "system", "content": SYS_PROMPT},
-    {"role": "user", "content": "Generate SVG code of a pelican riding a bicycle"},
+    {"role": "user", "content": "Generate SVG image of an apple"},
 ]
 NUM_SAMPLES = 2
 wandb.init(
     project="vequinox",
-    # name="pelican-run-001", # TODO: change to document unique runs
+    name="apple-run-001", # TODO: change to document unique runs
     config={
         "base_model": MODEL_NAME,
         "guide_model": "claude-haiku-4-5-20251001",
