@@ -4,6 +4,7 @@ import io
 import torch
 from transformers import CLIPProcessor, CLIPModel
 import cairosvg
+import wandb
 
 def load_svg_from_string(svg_text, width=512, height=512):
     """Convert SVG string to PIL Image"""
@@ -52,5 +53,15 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
         clip_outputs = clip_model(**clip_inputs)
 
     scores = clip_outputs.logits_per_image.squeeze()
+
+    wandb.log(
+        {
+            "svg_images": [
+                wandb.Image(image, caption=f"score={float(score):.4f}")
+                for image, score in zip(images, scores)
+            ],
+            "svg_scores": [float(score) for score in scores],
+        }
+    )
 
     return {"images": images, "scores": scores}
