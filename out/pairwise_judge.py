@@ -1,37 +1,52 @@
-import random
 # import anthropic
 from trl import BasePairwiseJudge
 
+from scoring import load_clip, score_svg
+import torch
+import re
 
 
 class PairwiseJudge(BasePairwiseJudge):
-    def __init__(self, model="claude-sonnet-4-20250514"):
-        self.model = model
-        # self.client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+    CLIP_JUDGE_PROMPT = """
+image of a pelican riding a bicycle.
+The pelican should have a clear structure and look like a bird atleast
+The bicycle should be built up using a frame, wheels etc.
+the pelican should be properly nested on the bicycle.
+    """
+
+    def __init__(self):
+        self.clip_processor, self.clip_model = load_clip()
+
+    def to(self, device: torch.device):
+        self.clip_model = self.clip_model.to(device)
+
+    @staticmethod
+    def _extract_svg_from_completion(completion):
+        # Extract content between triple backticks
+        match = re.search(r"```\w*\n?(.*?)(?:\n?```)?$", completion, re.DOTALL)
+        return match.group(1) if match else None
 
     def judge(self, prompts, completions, shuffle_order=True):
+        import pdb
+
+        pdb.set_trace()
         results = []
-        for prompt, (a, b) in zip(prompts, completions):
-            swapped = shuffle_order and random.random() < 0.5
-            if swapped:
-                a, b = b, a
-
-            # OVERRIDE: hardcoded judge
-            # response = self.client.messages.create(
-            #     model=self.model,
-            #     max_tokens=1,
-            #     messages=[{
-            #         "role": "user",
-            #         "content": f"Which response is better? Reply only A or B.\n\nPrompt: {prompt}\n\nA: {a}\n\nB: {b}"
-            #     }]
-            # )
-            # choice = response.content[0].text.strip().upper()
-            choice = "A"
-
-            if choice == "A":
-                results.append(1 if swapped else 0)
-            elif choice == "B":
-                results.append(0 if swapped else 1)
-            else:
+        for _, (comp_a, comp_b) in zip(prompts, completions):
+            svg_a = self._extract_svg_from_completion(comp_a)
+            svg_b = self._extract_svg_from_completion(comp_b)
+            if svg_a is None:
+                print(f"could not extract svg from {comp_a}")
                 results.append(-1)
+                continue
+            if svg_b is None:
+                print(f"could not extract svg from {comp_b}")
+                results.append(-1)
+                continue
+            _, scores = score_svg(
+                [svg_a, svg_b],
+                self.CLIP_JUDGE_PROMPT,
+                self.clip_processor,
+                self.clip_model,
+            )
+            results.append(int(scores.argmax().item()))
         return results
