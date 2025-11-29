@@ -4,6 +4,7 @@ from trl import BasePairwiseJudge
 from scoring import load_clip, score_svg
 import torch
 import re
+import wandb
 from shared import PREFIX
 
 
