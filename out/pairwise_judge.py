@@ -43,19 +43,32 @@ Image of an apple.
             print(comp_a)
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
-            if svg_a is None:
-                print(f"could not extract svg from {comp_a}")
+
+            invalid_a = svg_a is None
+            invalid_b = svg_b is None
+            if invalid_a and invalid_b:
                 results.append(-1)
                 continue
-            if svg_b is None:
-                print(f"could not extract svg from {comp_b}")
+            if invalid_a and not invalid_b:
+                results.append(1)
+                continue
+            if invalid_b and not invalid_a:
+                results.append(0)
+                continue
+
+            try:
+                score_dict = score_svg(
+                    [svg_a, svg_b],
+                    self.CLIP_JUDGE_PROMPT,
+                    self.clip_processor,
+                    self.clip_model,
+                )
+            except ValueError:
                 results.append(-1)
                 continue
-            score_dict = score_svg(
-                [svg_a, svg_b],
-                self.CLIP_JUDGE_PROMPT,
-                self.clip_processor,
-                self.clip_model,
-            )
-            results.append(int(score_dict["scores"].argmax().item()))
+
+            scores = score_dict["scores"]
+            indices = score_dict.get("indices", list(range(len(scores))))
+            chosen_valid_idx = indices[int(scores.argmax().item())]
+            results.append(int(chosen_valid_idx))
         return results

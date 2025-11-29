@@ -34,17 +34,22 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
         clip_model: CLIP model
 
     Returns:
-        Dict with 'images' (list of PIL Images) and 'scores' (list of floats)
+        Dict with 'images' (list of PIL Images), 'scores' (tensor of floats), and 'indices' (list of original indices)
     """
     width = clip_processor.image_processor.crop_size["width"]
     height = clip_processor.image_processor.crop_size["height"]
 
     images = []
-    for svg in svg_texts:
+    indices = []
+    for idx, svg in enumerate(svg_texts):
         try:
             images.append(load_svg_from_string(svg, width=width, height=height))
+            indices.append(idx)
         except xml.etree.ElementTree.ParseError:
             print(f"could not parse svg:\n{svg}")
+
+    if not images:
+        return {"images": [], "scores": torch.tensor([]), "indices": []}
 
     clip_inputs = clip_processor(text=[prompt], images=images, return_tensors="pt")
     clip_inputs = {k: v.to(clip_model.device) for k, v in clip_inputs.items()}
@@ -68,4 +73,4 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
         }
     )
 
-    return {"images": images, "scores": scores}
+    return {"images": images, "scores": scores, "indices": indices}
