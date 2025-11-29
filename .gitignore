@@ -2,3 +2,5 @@
 # SPX
 .spx/
 .env
+wandb/
+vequinox-checkpoints/
