@@ -4,7 +4,6 @@ from trl import BasePairwiseJudge
 from scoring import load_clip, score_svg
 import torch
 import re
-import wandb
 from shared import PREFIX
 
 
@@ -22,11 +21,18 @@ the pelican should be properly nested on the bicycle.
     def to(self, device: torch.device):
         self.clip_model = self.clip_model.to(device)
 
+    SVG_EXTRACTION_PATTERNS = [
+        r"```\w*\n?(.*?)(?:```|$)",  # Content between triple backticks
+        r"(<svg>.*?</svg>)",  # Content between <svg> tags
+    ]  # ordered list
+
     @staticmethod
     def _extract_svg_from_completion(completion):
-        # Extract content between triple backticks
-        match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
-        return match.group(1) if match else None
+        for pattern in PairwiseJudge.SVG_EXTRACTION_PATTERNS:
+            match = re.search(pattern, completion, re.DOTALL)
+            if match:
+                return match.group(1)
+        return None
 
     def postprocess_completion(self, completion):
         if completion.startswith("Assistant:"):
@@ -36,14 +42,16 @@ the pelican should be properly nested on the bicycle.
         return PREFIX + completion
 
     def judge(self, prompts, completions, shuffle_order=True):
-        completions = [[self.postprocess_completion(a), self.postprocess_completion(b)] for (a, b) in completions]
+        completions = [
+            [self.postprocess_completion(a), self.postprocess_completion(b)]
+            for (a, b) in completions
+        ]
 
         results = []
         for comp_a, comp_b in completions:
             # import pdb
 
             # pdb.set_trace()
-            print(comp_a)
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
             if svg_a is None:
