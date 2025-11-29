@@ -1,12 +1,13 @@
-import cairosvg
+import xml
 from PIL import Image
 import io
 import torch
 from transformers import CLIPProcessor, CLIPModel
-
+import cairosvg
 
 def load_svg_from_string(svg_text, width=512, height=512):
     """Convert SVG string to PIL Image"""
+
     png_data = cairosvg.svg2png(
         bytestring=svg_text.encode("utf-8"), output_width=width, output_height=height
     )
@@ -37,9 +38,12 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
     width = clip_processor.image_processor.crop_size["width"]
     height = clip_processor.image_processor.crop_size["height"]
 
-    images = [
-        load_svg_from_string(svg, width=width, height=height) for svg in svg_texts
-    ]
+    images = []
+    for svg in svg_texts:
+        try:
+            images.append(load_svg_from_string(svg, width=width, height=height))
+        except xml.etree.ElementTree.ParseError:
+            print(f"could not parse svg:\n{svg}")
 
     clip_inputs = clip_processor(text=[prompt], images=images, return_tensors="pt")
     clip_inputs = {k: v.to(clip_model.device) for k, v in clip_inputs.items()}

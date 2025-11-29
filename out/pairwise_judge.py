@@ -5,12 +5,13 @@ from scoring import load_clip, score_svg
 import torch
 import re
 import wandb
+from shared import PREFIX
 
 
 class PairwiseJudge(BasePairwiseJudge):
     CLIP_JUDGE_PROMPT = """
-image of a pelican riding a bicycle.
-The pelican should have a clear structure and look like a bird atleast
+Image of a pelican riding a bicycle.
+The pelican should have a clear structure and look like a bird at least
 The bicycle should be built up using a frame, wheels etc.
 the pelican should be properly nested on the bicycle.
     """
@@ -24,12 +25,25 @@ the pelican should be properly nested on the bicycle.
     @staticmethod
     def _extract_svg_from_completion(completion):
         # Extract content between triple backticks
-        match = re.search(r"```\w*\n?(.*?)(?:\n?```)?$", completion, re.DOTALL)
+        match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
         return match.group(1) if match else None
 
+    def postprocess_completion(self, completion):
+        if completion.startswith("Assistant:"):
+            print("Rogue 'Assistant:' prefix found in completion. Removing it.")
+            print(completion)
+            completion = completion.lstrip("Assistant:")
+        return PREFIX + completion
+
     def judge(self, prompts, completions, shuffle_order=True):
+        completions = [[self.postprocess_completion(a), self.postprocess_completion(b)] for (a, b) in completions]
+
         results = []
-        for _, (comp_a, comp_b) in zip(prompts, completions):
+        for comp_a, comp_b in completions:
+            # import pdb
+
+            # pdb.set_trace()
+            print(comp_a)
             svg_a = self._extract_svg_from_completion(comp_a)
             svg_b = self._extract_svg_from_completion(comp_b)
             if svg_a is None:
@@ -40,13 +54,11 @@ the pelican should be properly nested on the bicycle.
                 print(f"could not extract svg from {comp_b}")
                 results.append(-1)
                 continue
-            result = score_svg(
+            score_dict = score_svg(
                 [svg_a, svg_b],
                 self.CLIP_JUDGE_PROMPT,
                 self.clip_processor,
                 self.clip_model,
             )
-            images, scores = result["images"], result["scores"]
-            wandb.log({"svg_a": wandb.Image(images[0]), "svg_b": wandb.Image(images[1])})
-            results.append(int(scores.argmax().item()))
+            results.append(int(score_dict["scores"].argmax().item()))
         return results
