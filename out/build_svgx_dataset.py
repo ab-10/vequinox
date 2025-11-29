@@ -13,7 +13,7 @@ def is_short_svg(example):
 def main():
     ds = load_dataset(SOURCE_DATASET_NAME)
     filtered_splits = {
-        split_name: split_ds.filter(is_short_svg)
+        split_name: split_ds[:5000].filter(is_short_svg)
         for split_name, split_ds in ds.items()
     }
     filtered_ds = DatasetDict(filtered_splits)
