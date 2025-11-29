@@ -1,6 +1,5 @@
 import random
 # import anthropic
-import wandb
 from trl import BasePairwiseJudge
 
 
@@ -12,11 +11,7 @@ class PairwiseJudge(BasePairwiseJudge):
 
     def judge(self, prompts, completions, shuffle_order=True):
         results = []
-        for i, (prompt, (a, b)) in enumerate(zip(prompts, completions)):
-            wandb.log({
-                f"svg_a_{i}": wandb.Html(a),
-                f"svg_b_{i}": wandb.Html(b),
-            })
+        for prompt, (a, b) in zip(prompts, completions):
             swapped = shuffle_order and random.random() < 0.5
             if swapped:
                 a, b = b, a

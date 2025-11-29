@@ -9,6 +9,17 @@ from trl import OnlineDPOConfig, OnlineDPOTrainer
 
 from pairwise_judge import PairwiseJudge
 
+
+class LoggingPairwiseJudge(PairwiseJudge):
+    def judge(self, prompts, completions, shuffle_order=True):
+        for i, (prompt, (a, b)) in enumerate(zip(prompts, completions)):
+            wandb.log({
+                f"svg_a_{i}": wandb.Html(a),
+                f"svg_b_{i}": wandb.Html(b),
+            })
+        return super().judge(prompts, completions, shuffle_order=shuffle_order)
+
+
 MODEL_NAME = "Qwen/Qwen3-0.6B"
 
 PROMPT = """Generate an SVG of a pelican riding a bicycle"""
@@ -31,7 +42,7 @@ wandb.init(
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-judge = PairwiseJudge()
+judge = LoggingPairwiseJudge()
 
 
 
