@@ -16,4 +16,4 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/ishaan-vijai/vequinox main
+        run: git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/ishaan-vijai/iteratehack/vequinox main
