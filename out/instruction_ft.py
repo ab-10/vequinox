@@ -1,9 +1,13 @@
+import io
+
 import wandb
-from datasets import load_dataset
+from datasets import load_from_disk
+from PIL import Image
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+import cairosvg
 
-from shared import PREFIX
+from shared import LOCAL_DATASET_PATH, MAX_SVG_LENGTH, PREFIX
 
 
 MODEL_NAME = "Qwen/Qwen3-0.6B"
@@ -16,7 +20,7 @@ wandb.init(
     project="vequinox",
     config={
         "base_model": MODEL_NAME,
-        "dataset": DATASET_NAME,
+        "dataset": LOCAL_DATASET_PATH,
         "num_epochs": NUM_EPOCHS,
     },
 )
@@ -31,15 +35,27 @@ tokenizer.chat_template = tokenizer.chat_template.replace(
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-ds = load_dataset(DATASET_NAME)
+
+def svg_to_pil(svg_text, width=512, height=512):
+    png_data = cairosvg.svg2png(
+        bytestring=svg_text.encode("utf-8"),
+        output_width=width,
+        output_height=height,
+    )
+    return Image.open(io.BytesIO(png_data))
+
+
+ds = load_from_disk(LOCAL_DATASET_PATH)
 
 example = None
 for potential_example in ds["train"]:
-    if len(potential_example["svg_code"]) < 1000:
+    if len(potential_example["svg_code"]) <= MAX_SVG_LENGTH:
         example = potential_example
 
 if example is None:
-    raise ValueError("No example found with SVG code length less than 1000")
+    raise ValueError(
+        f"No example found with SVG code length less than or equal to {MAX_SVG_LENGTH}"
+    )
 
 target_svg = example["svg_code"]
 
@@ -102,7 +118,7 @@ training_args = TrainingArguments(
     learning_rate=1e-4,
     weight_decay=0.0,
     remove_unused_columns=False,
-    torch_dtype=torch.bfloat16
+    torch_dtype=torch.bfloat16,
 )
 
 trainer = Trainer(
@@ -117,3 +133,30 @@ print("Dataset:", DATASET_NAME)
 print("System prompt:", SYS_PROMPT)
 trainer.train()
 
+model.eval()
+
+with torch.no_grad():
+    generated_ids = model.generate(
+        prompt_ids.to(model.device),
+        max_new_tokens=512,
+    )
+
+generated_tokens = generated_ids[0][prompt_length:]
+generated_svg = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
+try:
+    target_image = svg_to_pil(target_svg)
+    generated_image = svg_to_pil(generated_svg)
+except Exception as e:
+    print(f"Failed to render SVGs: {e}")
+else:
+    wandb.log(
+        {
+            "instruction_ft/target_svg": wandb.Image(
+                target_image, caption="instruction_ft_target"
+            ),
+            "instruction_ft/generated_svg": wandb.Image(
+                generated_image, caption="instruction_ft_generated"
+            ),
+        }
+    )
