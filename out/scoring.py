@@ -53,14 +53,18 @@ def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> 
         clip_outputs = clip_model(**clip_inputs)
 
     scores = clip_outputs.logits_per_image.squeeze()
+    if scores.dim() == 0:
+        score_list = [float(scores.item())]
+    else:
+        score_list = [float(s) for s in scores]
 
     wandb.log(
         {
             "svg_images": [
-                wandb.Image(image, caption=f"score={float(score):.4f}")
-                for image, score in zip(images, scores)
+                wandb.Image(image, caption=f"score={score_list[i]:.4f}")
+                for i, image in enumerate(images)
             ],
-            "svg_scores": [float(score) for score in scores],
+            "svg_scores": score_list,
         }
     )
 
