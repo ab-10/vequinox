@@ -4,6 +4,7 @@ from trl import BasePairwiseJudge
 from scoring import load_clip, score_svg
 import torch
 import re
+import wandb
 
 
 class PairwiseJudge(BasePairwiseJudge):
@@ -39,11 +40,13 @@ the pelican should be properly nested on the bicycle.
                 print(f"could not extract svg from {comp_b}")
                 results.append(-1)
                 continue
-            _, scores = score_svg(
+            result = score_svg(
                 [svg_a, svg_b],
                 self.CLIP_JUDGE_PROMPT,
                 self.clip_processor,
                 self.clip_model,
             )
+            images, scores = result["images"], result["scores"]
+            wandb.log({"svg_a": wandb.Image(images[0]), "svg_b": wandb.Image(images[1])})
             results.append(int(scores.argmax().item()))
         return results
