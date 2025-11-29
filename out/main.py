@@ -4,6 +4,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import OnlineDPOConfig, OnlineDPOTrainer
 from pairwise_judge import PairwiseJudge
 
+from shared import PREFIX
+
 MODEL_NAME = "Qwen/Qwen3-0.6B"
 SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code. /no_think"
 CONSTANT_PROMPT = [
@@ -24,6 +26,8 @@ wandb.init(
 
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+tokenizer.chat_template = tokenizer.chat_template.replace("<|im_start|>assistant", "<|im_start|>assistant " + PREFIX)
 
 judge = PairwiseJudge()
 

@@ -1,15 +1,16 @@
 # import anthropic
 from trl import BasePairwiseJudge
 
-from scoring import load_clip, score_images, svg_text_to_pil
+from scoring import load_clip, score_svg
 import torch
 import re
+from shared import PREFIX
 
 
 class PairwiseJudge(BasePairwiseJudge):
     CLIP_JUDGE_PROMPT = """
-image of a pelican riding a bicycle.
-The pelican should have a clear structure and look like a bird atleast
+Image of a pelican riding a bicycle.
+The pelican should have a clear structure and look like a bird at least
 The bicycle should be built up using a frame, wheels etc.
 the pelican should be properly nested on the bicycle.
     """
@@ -26,43 +27,37 @@ the pelican should be properly nested on the bicycle.
         match = re.search(r"```\w*\n?(.*?)(?:```|$)", completion, re.DOTALL)
         return match.group(1) if match else None
 
-    def _preprocess_completion(self, completion, width, height):
-        """Extract SVG from completion and convert to image.
-
-        Returns:
-            PIL Image on success, None on failure (logs the error)
-        """
-        svg = self._extract_svg_from_completion(completion)
-        if svg is None:
-            print(f"could not extract svg from {completion}")
-            return None
-        try:
-            img = svg_text_to_pil(svg, width=width, height=height)
-        except Exception as e:
-            print(f"failed to convert svg to image: {e}")
-            return None
-        if img is None:
-            print("svg_text_to_pil returned None")
-            return None
-        return img
+    def postprocess_completion(self, completion):
+        if completion.startswith("Assistant:"):
+            print("Rogue 'Assistant:' prefix found in completion. Removing it.")
+            print(completion)
+            completion = completion.lstrip("Assistant:")
+        return PREFIX + completion
 
     def judge(self, prompts, completions, shuffle_order=True):
-        width = self.clip_processor.image_processor.crop_size["width"]
-        height = self.clip_processor.image_processor.crop_size["height"]
+        completions = [[self.postprocess_completion(a), self.postprocess_completion(b)] for (a, b) in completions]
 
         results = []
-        for _, (comp_a, comp_b) in zip(prompts, completions):
-            img_a = self._preprocess_completion(comp_a, width, height)
-            img_b = self._preprocess_completion(comp_b, width, height)
-            if img_a is None or img_b is None:
+        for comp_a, comp_b in completions:
+            # import pdb
+
+            # pdb.set_trace()
+            print(comp_a)
+            svg_a = self._extract_svg_from_completion(comp_a)
+            svg_b = self._extract_svg_from_completion(comp_b)
+            if svg_a is None:
+                print(f"could not extract svg from {comp_a}")
                 results.append(-1)
                 continue
-
-            scores = score_images(
-                [img_a, img_b],
+            if svg_b is None:
+                print(f"could not extract svg from {comp_b}")
+                results.append(-1)
+                continue
+            score_dict = score_svg(
+                [svg_a, svg_b],
                 self.CLIP_JUDGE_PROMPT,
                 self.clip_processor,
                 self.clip_model,
             )
-            results.append(int(scores.argmax().item()))
+            results.append(int(score_dict["scores"].argmax().item()))
         return results
