@@ -32,7 +32,14 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 ds = load_dataset(DATASET_NAME)
-example = ds["train"][0]
+
+example = None
+for potential_example in ds["train"]:
+    if len(example["svg_code"]) < 1000:
+        example = potential_example
+
+if example is None:
+    raise ValueError("No example found with SVG code length less than 1000")
 
 target_svg = example["svg_code"]
 
