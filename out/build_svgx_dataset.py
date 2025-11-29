@@ -19,7 +19,7 @@ def main():
         for split_name, split_ds in ds.items()
     }
     limited_and_filtered_splits = {
-        split_name: split_ds.select(range(min(5000, len(split_ds)))).filter(
+        split_name: split_ds.select(range(min(10000, len(split_ds)))).filter(
             is_short_svg
         )
         for split_name, split_ds in filtered_splits.items()
