@@ -5,18 +5,15 @@ import anthropic
 from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import OnlineDPOConfig, OnlineDPOTrainer
-
-
 from pairwise_judge import PairwiseJudge
 
 MODEL_NAME = "Qwen/Qwen3-0.6B"
-
-PROMPT = """Generate an SVG of a pelican riding a bicycle"""
+SYS_PROMPT = ("You are an SVG generator. Respond only with valid SVG code. /no_think",)
 CONSTANT_PROMPT = [
-    {"role": "user", "content": PROMPT}
+    {"role": "system", "content": SYS_PROMPT},
+    {"role": "user", "content": "Generate SVG code of a pelican riding a bicycle"},
 ]
-NUM_SAMPLES = 10
-
+NUM_SAMPLES = 1
 wandb.init(
     project="vequinox",
     # name="pelican-run-001", # TODO: change to document unique runs
@@ -24,8 +21,8 @@ wandb.init(
         "base_model": MODEL_NAME,
         "guide_model": "claude-haiku-4-5-20251001",
         "num_samples": NUM_SAMPLES,
-        "prompt": PROMPT,
-    }
+        "prompt": SYS_PROMPT,
+    },
 )
 
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
@@ -33,16 +30,20 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
 judge = PairwiseJudge()
 
+config = OnlineDPOConfig(
+    output_dir="./vequinox-checkpoints",
+    # wandb integration
+    report_to="wandb",
+    logging_steps=1,
+    max_new_tokens=512,
+    max_length=1024,
+)
 
 
 train_dataset = Dataset.from_dict({"prompt": [CONSTANT_PROMPT] * NUM_SAMPLES})
 
-config = OnlineDPOConfig(
-    output_dir="./vequinox-checkpoints",
-    
-    # wandb integration
-    report_to="wandb",
-    logging_steps=1,
+training_args = OnlineDPOConfig(
+    output_dir="Qwen3-0.6B-OnlineDPO-ClipJudge",
 )
 
 trainer = OnlineDPOTrainer(
@@ -55,5 +56,5 @@ trainer = OnlineDPOTrainer(
 
 print("=== Running training ===")
 print("Device: ", trainer.accelerator.device)
-
+judge.to(trainer.accelerator.device)
 trainer.train()
