@@ -27,9 +27,6 @@ the pelican should be properly nested on the bicycle.
         return match.group(1) if match else None
 
     def judge(self, prompts, completions, shuffle_order=True):
-        import pdb
-
-        pdb.set_trace()
         results = []
         for _, (comp_a, comp_b) in zip(prompts, completions):
             svg_a = self._extract_svg_from_completion(comp_a)

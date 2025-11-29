@@ -8,12 +8,9 @@ from trl import OnlineDPOConfig, OnlineDPOTrainer
 from pairwise_judge import PairwiseJudge
 
 MODEL_NAME = "Qwen/Qwen3-0.6B"
-
+SYS_PROMPT = ("You are an SVG generator. Respond only with valid SVG code. /no_think",)
 CONSTANT_PROMPT = [
-    {
-        "role": "system",
-        "content": "You are an SVG generator. Respond only with valid SVG code. /no_think",
-    },
+    {"role": "system", "content": SYS_PROMPT},
     {"role": "user", "content": "Generate SVG code of a pelican riding a bicycle"},
 ]
 NUM_SAMPLES = 1
@@ -24,7 +21,7 @@ wandb.init(
         "base_model": MODEL_NAME,
         "guide_model": "claude-haiku-4-5-20251001",
         "num_samples": NUM_SAMPLES,
-        "prompt": CONSTANT_PROMPT,
+        "prompt": SYS_PROMPT,
     },
 )
 
