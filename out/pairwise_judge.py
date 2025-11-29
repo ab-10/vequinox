@@ -36,7 +36,10 @@ the pelican should be properly nested on the bicycle.
         return PREFIX + completion
 
     def judge(self, prompts, completions, shuffle_order=True):
-        completions = [[self.postprocess_completion(a), self.postprocess_completion(b)] for (a, b) in completions]
+        completions = [
+            [self.postprocess_completion(a), self.postprocess_completion(b)]
+            for (a, b) in completions
+        ]
 
         results = []
         for comp_a, comp_b in completions:

@@ -6,6 +6,7 @@ from transformers import CLIPProcessor, CLIPModel
 import cairosvg
 import wandb
 
+
 def load_svg_from_string(svg_text, width=512, height=512):
     """Convert SVG string to PIL Image"""
 
