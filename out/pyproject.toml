@@ -10,6 +10,7 @@ dependencies = [
     "cairosvg>=2.8.2",
     "datasets>=4.4.1",
     "llm-blender>=0.0.2",
+    "peft>=0.15.0",
     "pillow>=12.0.0",
     "reportlab>=4.4.5",
     "svglib>=1.6.0",
