@@ -1,3 +1,14 @@
+---
+title: vequinox
+emoji: 🦅
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: "5.8.0"
+app_file: out/app.py
+pinned: false
+---
+
 # vequinox
 
 Goal: post-train an LLM to generate SVGs using RL feedback from a larger model
