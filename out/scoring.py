@@ -42,29 +42,24 @@ def load_clip():
     return processor, model
 
 
-def score_svg(svg_texts: list[str], prompt: str, clip_processor, clip_model) -> dict:
+def score_images(
+    images: list[Image.Image], prompt: str, clip_processor, clip_model
+) -> torch.Tensor:
     """Get CLIP scores for how well images match prompt.
 
     Args:
-        svg_texts: List of SVG strings to score
+        images: List of PIL Images to score
         prompt: Text prompt to compare against
         clip_processor: CLIP processor
         clip_model: CLIP model
 
     Returns:
-        Dict with 'images' (list of PIL Images) and 'scores' (list of floats)
+        Tensor of scores
     """
-    width = clip_processor.image_processor.crop_size["width"]
-    height = clip_processor.image_processor.crop_size["height"]
-
-    images = [svg_text_to_pil(svg, width=width, height=height) for svg in svg_texts]
-
     clip_inputs = clip_processor(text=[prompt], images=images, return_tensors="pt")
     clip_inputs = {k: v.to(clip_model.device) for k, v in clip_inputs.items()}
 
     with torch.no_grad():
         clip_outputs = clip_model(**clip_inputs)
 
-    scores = clip_outputs.logits_per_image.squeeze()
-
-    return {"images": images, "scores": scores}
+    return clip_outputs.logits_per_image.squeeze()
