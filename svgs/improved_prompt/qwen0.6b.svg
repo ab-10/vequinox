@@ -1,0 +1,31 @@
+<svg width="500" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bicycle Elements -->
+  <circle cx="100" cy="150" r="10" fill="white" stroke="black" />
+  <circle cx="280" cy="150" r="10" fill="white" stroke="black" />
+  <!-- Triangle frame between wheels -->
+  <polygon points="100,150 280,150 280,200" fill="none" stroke="blue" stroke-width="2" />
+  <!-- Seat rectangle -->
+  <rect x="200" y="100" width="50" height="30" fill="white" />
+  <!-- Handlebars (curved lines) -->
+  <path d="M 150 120 L 200 150 L 250 120" fill="none" stroke="orange" stroke-width="2" />
+  <path d="M 150 120 L 100 150 L 200 120" fill="none" stroke="orange" stroke-width="2" />
+  <!-- Pedals (circles) -->
+  <circle cx="250" cy="170" r="5" fill="orange" />
+  <circle cx="200" cy="220" r="5" fill="orange" />
+  <!-- Pelican Body (oval) -->
+  <polygon points="100 200 250 200 250 150" fill="white" stroke="black" />
+  <!-- Pelican Neck (long curved path) -->
+  <path d="M 100 200 L 150 150 L 200 170 L 250 150" fill="none" stroke="red" stroke-width="2" />
+  <!-- Pelican Head (large oval) -->
+  <polygon points="150 150 200 100 250 150" fill="orange" />
+  <!-- Pelican Beak (oval) -->
+  <polygon points="170 100 220 150 220 170" fill="orange" />
+  <!-- Pelican Pouch (small circle) -->
+  <circle cx="250" cy="180" r="3" fill="white" />
+  <!-- Pelican Wings (forward lines) -->
+  <line x1="150" y1="170" x2="150" y2="200" stroke="green" />
+  <line x1="250" y1="170" x2="250" y2="200" stroke="green" />
+  <!-- Legs (lines) -->
+  <line x1="100" y1="100" x2="100" y2="150" stroke="red" />
+  <line x1="280" y1="100" x2="280" y2="150" stroke="red" />
+</svg>
