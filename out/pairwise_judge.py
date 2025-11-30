@@ -13,6 +13,7 @@ Image of a pelican riding a bicycle.
 The pelican should have a clear structure and look like a bird at least
 The bicycle should be built up using a frame, wheels etc.
 the pelican should be properly nested on the bicycle.
+The image should not have text or any other elements other than the pelican and the bicycle.
     """
 
     def __init__(self):

@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+from pairwise_judge import PairwiseJudge
 from shared import MODEL_NAME, PREFIX, PROMPT
 
 
@@ -28,35 +28,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def extract_svg(text: str) -> str:
-    """Extract SVG content from model output."""
-    # The model output starts with PREFIX which contains the svg opening tag
-    # We need to find the closing </svg> tag
-    svg_start = text.find("<svg")
-    if svg_start == -1:
-        return text
-
-    svg_end = text.find("</svg>", svg_start)
-    if svg_end == -1:
-        # No closing tag, return from start to end
-        return text[svg_start:]
-
-    return text[svg_start : svg_end + len("</svg>")]
-
-
 def main():
     args = parse_args()
 
     print(f"Loading model from checkpoint: {args.checkpoint_dir}")
 
     # Load tokenizer from base model, model from checkpoint
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(args.checkpoint_dir)
-
-    # Apply the same chat template modification as training
-    tokenizer.chat_template = tokenizer.chat_template.replace(
-        "<|im_start|>assistant", "<|im_start|>assistant " + PREFIX
-    )
+    tokenizer = AutoTokenizer.from_pretrained(args.checkpoint_dir)
+    model = AutoModelForCausalLM.from_pretrained(args.checkpoint_dir, device_map="auto")
 
     # Create output directory
     output_dir = Path(args.output_dir)
@@ -83,16 +62,13 @@ def main():
             inputs,
             max_new_tokens=args.max_new_tokens,
             do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
-            pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
         )
 
         # Decode output
         generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         # Extract SVG
-        svg_content = extract_svg(generated_text)
+        svg_content = PairwiseJudge._extract_svg_from_completion(generated_text)
 
         # Save SVG
         output_file = output_dir / f"{checkpoint_name}_sample_{i}.svg"
