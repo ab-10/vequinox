@@ -62,11 +62,16 @@ the pelican should be properly nested on the bicycle.
                 print(f"could not extract svg from {comp_b}")
                 results.append(-1)
                 continue
-            score_dict = score_svg(
-                [svg_a, svg_b],
-                self.CLIP_JUDGE_PROMPT,
-                self.clip_processor,
-                self.clip_model,
-            )
-            results.append(int(score_dict["scores"].argmax().item()))
+            try:
+                score_dict = score_svg(
+                    [svg_a, svg_b],
+                    self.CLIP_JUDGE_PROMPT,
+                    self.clip_processor,
+                    self.clip_model,
+                )
+                results.append(int(score_dict["scores"].argmax().item()))
+            except Exception as e:
+                print(f"could not score svg: {e}")
+                results.append(-1)
+
         return results
