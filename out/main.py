@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import OnlineDPOConfig, OnlineDPOTrainer
 from pairwise_judge import PairwiseJudge
 
-from shared import MODEL_NAME, PREFIX, PROMPT, SYS_PROMPT
+from shared import MODEL_NAME as DEFAULT_MODEL_NAME, PREFIX, PROMPT, SYS_PROMPT
 
 
 def parse_args():
@@ -25,12 +25,25 @@ def parse_args():
         default="./vequinox-checkpoints",
         help="Output directory for checkpoints",
     )
+    parser.add_argument(
+        "--train_batch_size",
+        type=int,
+        default=8,
+        help="Training batch size per device",
+    )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default=DEFAULT_MODEL_NAME,
+        help="HuggingFace model name or path",
+    )
     return parser.parse_args()
 
 
 args = parse_args()
 
 NUM_SAMPLES = args.num_samples
+MODEL_NAME = args.model_name
 # LORA_R = 32
 # LORA_ALPHA = 64
 # LORA_DROPOUT = 0.05
@@ -57,7 +70,7 @@ wandb.init(
     project="vequinox",
     # name="pelican-run-001", # TODO: change to document unique runs
     config={
-        "base_model": MODEL_NAME,
+        "base_model": args.model_name,
         "guide_model": "claude-haiku-4-5-20251001",
         "num_samples": NUM_SAMPLES,
         "prompt": SYS_PROMPT,
@@ -68,8 +81,8 @@ wandb.init(
     },
 )
 
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(args.model_name)
+tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
 tokenizer.chat_template = tokenizer.chat_template.replace(
     "<|im_start|>assistant", "<|im_start|>assistant " + PREFIX
@@ -87,6 +100,7 @@ config = OnlineDPOConfig(
     save_steps=20,
     save_total_limit=5,
     num_train_epochs=args.num_train_epochs,
+    per_device_train_batch_size=args.train_batch_size,
 )
 
 
