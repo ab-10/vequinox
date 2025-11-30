@@ -11,6 +11,9 @@ from scoring import load_svg_from_string
 from shared import PREFIX, MAX_SVG_LENGTH
 
 
+st.set_page_config(page_title="vequinox UI", layout="wide")
+
+
 @st.cache_resource
 def get_model_and_tokenizer(selected_checkpoint_name):
     model, tokenizer, last_checkpoint = load_model_and_tokenizer(
@@ -77,6 +80,20 @@ def render_dpo():
         default_index = checkpoint_names.index(default_checkpoint_name)
     else:
         default_index = len(checkpoint_names) - 1
+    
+    with st.expander("What is going on?"):
+        st.image("assets/wandb_loss.png", width=400)
+        st.write("""
+        Your input text specifies the object to generate.
+
+        When you select an image, we feed it as feedback to the model.
+        This means, the model makes the weights responsible for your prefered image higher,
+        while the weights responsible for the other image are lowered.
+
+        That's why it's called "Direct Preference Optimization".
+        You are directly changing the model, based on your preferences!
+        """)
+
     with st.expander("Configs for the curious"):
         selected_checkpoint_name = st.selectbox(
             "Checkpoint",
@@ -98,7 +115,12 @@ def render_dpo():
         st.session_state["dpo_feedback"] = []
     if "dpo_pair" not in st.session_state:
         st.session_state["dpo_pair"] = None
+    if "dpo_auto_generate" not in st.session_state:
+        st.session_state["dpo_auto_generate"] = False
     generate_pair = False
+    if st.session_state["dpo_auto_generate"] and user_text:
+        generate_pair = True
+        st.session_state["dpo_auto_generate"] = False
     button_label = "Start judging" if st.session_state["dpo_pair"] is None else "Next pair"
     if st.button(button_label, disabled=not bool(user_text)):
         generate_pair = True
@@ -131,11 +153,11 @@ def render_dpo():
         cols = st.columns(2, gap="large")
         with cols[0]:
             st.subheader("Option A")
-            components.html(left_svg, height=800)
+            components.html(left_svg, height=400)
             prefer_left = st.button("Prefer A", key="dpo_prefer_left")
         with cols[1]:
             st.subheader("Option B")
-            components.html(right_svg, height=800)
+            components.html(right_svg, height=400)
             prefer_right = st.button("Prefer B", key="dpo_prefer_right")
         if prefer_left or prefer_right:
             preferred = 0 if prefer_left else 1
@@ -149,11 +171,8 @@ def render_dpo():
                 }
             )
             st.session_state["dpo_pair"] = None
+            st.session_state["dpo_auto_generate"] = True
             st.rerun()
-    if st.session_state["dpo_feedback"]:
-        st.write(
-            f"Collected {len(st.session_state['dpo_feedback'])} preference judgments so far."
-        )
 
 
 def render_interact():
@@ -170,6 +189,7 @@ def render_interact():
     else:
         default_index = len(checkpoint_names) - 1
     with st.expander("Configs for the curious"):
+        st.image("assets/wandb_loss.png", width=400)
         selected_checkpoint_name = st.selectbox(
             "Checkpoint",
             checkpoint_names,
@@ -236,14 +256,12 @@ def render_stub(name):
     st.write("Not implemented yet.")
 
 
-def main():
-    st.set_page_config(page_title="vequinox UI", layout="wide")
+def render_home():
     base_dir = os.path.dirname(__file__)
     video_path = os.path.join(base_dir, "assets", "pelican.mp4")
     st.title("vequinox")
     st.text("The equinox for vector graphics generation.")
     st.video(video_path, autoplay=True, muted=True, loop=True)
-    st.page_link("battle.py", label="Battle mode")
     tab_interact, tab_dpo, tab_clip = st.tabs(["Interact", "DPO", "CLIP"])
     with tab_interact:
         render_interact()
@@ -253,6 +271,9 @@ def main():
         render_stub("CLIP")
 
 
-if __name__ == "__main__":
-    main()
+home_page = st.Page(render_home, title="Home", icon="🏠", default=True)
+battle_page = st.Page("battle.py", title="Battle", icon="⚔️")
+
+pg = st.navigation([home_page, battle_page])
+pg.run()
 

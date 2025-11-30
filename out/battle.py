@@ -2,7 +2,7 @@ import os
 import random
 import base64
 import io
-import xml
+import xml.etree.ElementTree
 
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
@@ -105,61 +105,112 @@ def score_battle_with_claude(prompt_text, model_image, user_image):
     text_blocks = [block.text for block in response.content if block.type == "text"]
     full_text = " ".join(text_blocks).strip().upper()
     if "HUMAN" in full_text:
-        return "human", full_text
+        return "human"
     if "MODEL" in full_text:
-        return "model", full_text
+        return "model"
     if "TIE" in full_text:
-        return "tie", full_text
-    return "unknown", full_text
+        return "tie"
+    return "unknown"
+
+
+@st.cache_data
+def generate_model_svg(prompt_text, checkpoint_name):
+    """Generate SVG for a given prompt. Cached to prevent regeneration."""
+    from ui import get_model_and_tokenizer, generate_svgs
+    
+    model, tokenizer, device, _ = get_model_and_tokenizer(checkpoint_name)
+    svgs = generate_svgs(model, tokenizer, device, prompt_text, num_images=1)
+    
+    if not svgs:
+        return None
+    
+    svg_prefix = PREFIX[PREFIX.index("<svg"):]
+    full_svg = svg_prefix + svgs[0]
+    
+    try:
+        load_svg_from_string(full_svg)
+        return full_svg
+    except xml.etree.ElementTree.ParseError:
+        return None
 
 
 def render_battle():
-    from ui import get_model_and_tokenizer, generate_svgs
-
     st.header("Battle")
+    
+    # Get checkpoint
     checkpoints = list_checkpoints()
     checkpoint_names = [path.name for path in checkpoints]
     if not checkpoint_names:
         st.error("No checkpoints available.")
         return
+
     default_checkpoint_name = "checkpoint-80050"
-    if default_checkpoint_name in checkpoint_names:
-        default_checkpoint_name = default_checkpoint_name
-    else:
+    if default_checkpoint_name not in checkpoint_names:
         default_checkpoint_name = checkpoint_names[-1]
-    selected_checkpoint_name = st.session_state.get(
-        "checkpoint_name", default_checkpoint_name
-    )
-    if selected_checkpoint_name not in checkpoint_names:
-        selected_checkpoint_name = default_checkpoint_name
-    model, tokenizer, device, checkpoint = get_model_and_tokenizer(
-        selected_checkpoint_name
-    )
+    checkpoint_name = default_checkpoint_name
+
+    # Get prompts
     prompts = load_battle_prompts()
-    if "battle_prompt" not in st.session_state or st.session_state.get(
-        "battle_new_round", False
-    ):
-        st.session_state["battle_prompt"] = random.choice(prompts) if prompts else ""
-        st.session_state["battle_model_svg"] = None
-        st.session_state["battle_result"] = None
-        st.session_state["battle_new_round"] = False
-    prompt_text = st.session_state["battle_prompt"]
-    if not prompt_text:
+    if not prompts:
         st.error("No prompts available for battle mode.")
         return
-    if "battle_canvas_version" not in st.session_state:
-        st.session_state["battle_canvas_version"] = 0
+
+    # Initialize prompt once per session
+    if "battle_prompt" not in st.session_state:
+        st.session_state["battle_prompt"] = random.choice(prompts)
+    
+    prompt_text = st.session_state["battle_prompt"]
+    
     st.subheader("Prompt")
     st.write(prompt_text)
-    spinner_placeholder = st.empty()
+
+    # Check if we have a result to show
+    if st.session_state.get("battle_result") is not None:
+        result = st.session_state["battle_result"]
+        outcome = result["outcome"]
+        
+        st.divider()
+        
+        cols = st.columns(2, gap="large")
+        with cols[0]:
+            st.subheader("Model's image")
+            st.image(result["model_image"], width=512)
+        with cols[1]:
+            st.subheader("Your drawing")
+            st.image(result["user_image"], width=512)
+        
+        st.divider()
+        
+        if outcome == "human":
+            st.markdown("## 🎉 You win!")
+            st.write("Did you just get lucky? Refresh the page to defend your title.")
+        elif outcome == "model":
+            st.markdown("## 🤖 What a loss!")
+            st.write("You came, you tried, you failed! Refresh to try again.")
+        elif outcome == "tie":
+            st.markdown("## 🤝 It's a tie!")
+            st.write("So close. Refresh the page and claim your victory.")
+        else:
+            st.markdown("## ❓ Unable to determine a winner")
+            st.write("The judge could not clearly choose a winner. Refresh to try again.")
+        
+        return
+
+    # Generate model image (cached by prompt and checkpoint)
+    with st.spinner("Generating model image..."):
+        model_svg = generate_model_svg(prompt_text, checkpoint_name)
+    
+    if model_svg is None:
+        st.error("Model failed to generate a valid SVG. Refresh to try again.")
+        return
+
+    model_image = load_svg_from_string(model_svg)
+
+    # Show the battle interface
     cols = st.columns(2, gap="large")
     with cols[0]:
         st.subheader("Model's image")
-        model_image_placeholder = st.empty()
-        model_image_placeholder.markdown(
-            "<div style='height:512px'></div>",
-            unsafe_allow_html=True,
-        )
+        st.image(model_image, width=512)
     with cols[1]:
         st.subheader("Your drawing")
         canvas_result = st_canvas(
@@ -170,63 +221,26 @@ def render_battle():
             height=512,
             width=512,
             drawing_mode="freedraw",
-            key=f"battle_canvas_{st.session_state['battle_canvas_version']}",
+            key="battle_canvas",
         )
-    if st.session_state["battle_model_svg"] is None:
-        spinner_container = spinner_placeholder.container()
-        with spinner_container:
-            with st.spinner("Generating model image..."):
-                svgs = generate_svgs(
-                    model, tokenizer, device, prompt_text, num_images=1
-                )
-        if not svgs:
-            st.error("Model did not generate any SVG.")
-            return
-        svg_prefix = PREFIX[PREFIX.index("<svg"):]
-        full_svg = svg_prefix + svgs[0]
-        try:
-            load_svg_from_string(full_svg)
-        except xml.etree.ElementTree.ParseError:
-            st.error("Model generated an invalid SVG.")
-            return
-        st.session_state["battle_model_svg"] = full_svg
-    if st.session_state["battle_model_svg"] is not None:
-        model_image = load_svg_from_string(st.session_state["battle_model_svg"])
-        model_image_placeholder.image(model_image, width=512)
-    submit = st.button("Submit")
-    if submit:
+
+    if st.button("Judge the Battle", type="primary"):
         if canvas_result.image_data is None:
             st.error("Please draw something before submitting.")
             return
-        user_image_array = canvas_result.image_data
-        user_image = Image.fromarray(user_image_array.astype("uint8"))
-        model_image = load_svg_from_string(st.session_state["battle_model_svg"])
+        
+        user_image = Image.fromarray(canvas_result.image_data.astype("uint8"))
+        
         with st.spinner("Asking Claude to judge the battle..."):
-            outcome, raw_response = score_battle_with_claude(
-                prompt_text, model_image, user_image
-            )
-        st.session_state["battle_result"] = (outcome, raw_response)
-    if st.session_state.get("battle_result") is not None:
-        outcome, _ = st.session_state["battle_result"]
-        if outcome == "human":
-            st.markdown("### You win!")
-            st.write("Did you just get lucky? Defend your title.")
-        elif outcome == "model":
-            st.markdown("### What a loss!")
-            st.write("You came, you tried, you failed!")
-        elif outcome == "tie":
-            st.markdown("### It's a tie!")
-            st.write("So close. Go again and claim your victory.")
-        else:
-            st.markdown("### Unable to determine a winner")
-            st.write("The judge could not clearly choose a winner. Try another round.")
-        if st.button("Next Round"):
-            st.session_state["battle_new_round"] = True
-            st.session_state["battle_result"] = None
-            st.session_state["battle_model_svg"] = None
-            st.session_state["battle_canvas_version"] += 1
-            st.rerun()
+            outcome = score_battle_with_claude(prompt_text, model_image, user_image)
+        
+        # Store result and rerun to show results view
+        st.session_state["battle_result"] = {
+            "outcome": outcome,
+            "model_image": model_image,
+            "user_image": user_image,
+        }
+        st.rerun()
 
 
 render_battle()
-
