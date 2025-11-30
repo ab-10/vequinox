@@ -20,7 +20,8 @@ End target: train it to generate images based on free text prompts.
 
 Base model: `Qwen/Qwen3-0.6B`
 
-Guide model: Claude Haiku 4.5
+Initial model: Claude Haiku 4.5
+Final model: CLIP-VIT
 
 
 ## Scorer
@@ -37,13 +38,13 @@ As a baseline we can use CLIP score for initial testing. We can later integrate 
 
 ## Training Paradigm
 
-We use Online DPO via TRL's `OnlineDPOTrainer` with a custom pairwise judge backed by Claude.
+We use Online DPO via TRL's `OnlineDPOTrainer` with a custom pairwise judge using CLIP scores.
 
 1. **Candidate generation**
    - For each prompt in the batch, the base model generates 2 SVG candidates.
 2. **Pairwise scoring**
-   - The guide model (Claude Haiku 4.5) receives one pair at a time: the prompt text and both SVG candidates (A and B).
-   - Claude evaluates using the rubric (semantic match, SVG validity, simplicity/clean shapes, safety) and returns which candidate is better.
+   - We compute CLIP scores for each SVG candidate against the prompt. 
+   - We use the higher score as the judgment for that pair.
 3. **Online DPO update**
    - `OnlineDPOTrainer` uses the pairwise judgments to compute the DPO loss and update the policy in a single step.
    - No separate preference dataset accumulation—training happens online as candidates are generated and judged.
