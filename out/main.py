@@ -1,3 +1,5 @@
+import argparse
+
 import wandb
 from datasets import Dataset
 
@@ -6,15 +8,29 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import OnlineDPOConfig, OnlineDPOTrainer
 from pairwise_judge import PairwiseJudge
 
-from shared import PREFIX
+from shared import MODEL_NAME, PREFIX, PROMPT, SYS_PROMPT
 
-MODEL_NAME = "Qwen/Qwen3-0.6B"
-SYS_PROMPT = "You are an SVG generator. Respond only with valid SVG code. /no_think"
-CONSTANT_PROMPT = [
-    {"role": "system", "content": SYS_PROMPT},
-    {"role": "user", "content": "Generate SVG code of a pelican riding a bicycle"},
-]
-NUM_SAMPLES = 2
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train vequinox model")
+    parser.add_argument(
+        "--num_train_epochs", type=int, default=5, help="Number of training epochs"
+    )
+    parser.add_argument(
+        "--num_samples", type=int, default=500, help="Number of training samples"
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="./vequinox-checkpoints",
+        help="Output directory for checkpoints",
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
+
+NUM_SAMPLES = args.num_samples
 # LORA_R = 32
 # LORA_ALPHA = 64
 # LORA_DROPOUT = 0.05
@@ -62,19 +78,19 @@ tokenizer.chat_template = tokenizer.chat_template.replace(
 judge = PairwiseJudge()
 
 config = OnlineDPOConfig(
-    output_dir="./vequinox-checkpoints",
+    output_dir=args.output_dir,
     # wandb integration
     report_to="wandb",
     logging_steps=1,
     max_new_tokens=512,
     max_length=1024,
-    save_steps=15,
+    save_steps=20,
     save_total_limit=5,
-    num_train_epochs=5,
+    num_train_epochs=args.num_train_epochs,
 )
 
 
-train_dataset = Dataset.from_dict({"prompt": [CONSTANT_PROMPT] * NUM_SAMPLES})
+train_dataset = Dataset.from_dict({"prompt": [PROMPT] * NUM_SAMPLES})
 
 trainer = OnlineDPOTrainer(
     model=model,
