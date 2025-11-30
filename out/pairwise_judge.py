@@ -13,6 +13,7 @@ Image of a pelican riding a bicycle.
 The pelican should have a clear structure and look like a bird at least
 The bicycle should be built up using a frame, wheels etc.
 the pelican should be properly nested on the bicycle.
+The image should not have text or any other elements other than the pelican and the bicycle.
     """
 
     def __init__(self):
@@ -62,11 +63,16 @@ the pelican should be properly nested on the bicycle.
                 print(f"could not extract svg from {comp_b}")
                 results.append(-1)
                 continue
-            score_dict = score_svg(
-                [svg_a, svg_b],
-                self.CLIP_JUDGE_PROMPT,
-                self.clip_processor,
-                self.clip_model,
-            )
-            results.append(int(score_dict["scores"].argmax().item()))
+            try:
+                score_dict = score_svg(
+                    [svg_a, svg_b],
+                    self.CLIP_JUDGE_PROMPT,
+                    self.clip_processor,
+                    self.clip_model,
+                )
+                results.append(int(score_dict["scores"].argmax().item()))
+            except Exception as e:
+                print(f"could not score svg: {e}")
+                results.append(-1)
+
         return results

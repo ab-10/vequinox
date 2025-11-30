@@ -1,0 +1,7 @@
+<svg width="200" height="200">
+    <circle cx="100" cy="100" r="50" fill="lightgray" />
+    <line x1="100" y1="100" x2="150" y2="50" style="stroke:black;stroke-width:2" />
+    <line x1="100" y1="100" x2="150" y2="150" style="stroke:black;stroke-width:2" />
+    <rect x="90" y="160" width="10" height="10" fill="black" />
+    <circle cx="110" cy="110" r="5" fill="black" />
+</svg>
