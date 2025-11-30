@@ -9,6 +9,21 @@ from shared import LOCAL_DATASET_PATH, MAX_SVG_LENGTH, PREFIX
 CHECKPOINT_DIR = "instruction-ft-checkpoints"
 
 
+def list_checkpoints():
+    checkpoint_root = Path(CHECKPOINT_DIR)
+    if not checkpoint_root.exists():
+        raise FileNotFoundError(f"No checkpoint directory found at {checkpoint_root}")
+    checkpoints = [
+        path
+        for path in checkpoint_root.iterdir()
+        if path.is_dir() and path.name.startswith("checkpoint-")
+    ]
+    if not checkpoints:
+        raise FileNotFoundError(f"No checkpoints found under {checkpoint_root}")
+    checkpoints.sort(key=lambda p: int(p.name.split("-")[-1]))
+    return checkpoints
+
+
 def get_eval_prompt():
     ds = load_from_disk(LOCAL_DATASET_PATH)
     example = None
@@ -23,25 +38,22 @@ def get_eval_prompt():
     return sys_prompt
 
 
-def load_model_and_tokenizer():
-    checkpoint_root = Path(CHECKPOINT_DIR)
-    if not checkpoint_root.exists():
-        raise FileNotFoundError(f"No checkpoint directory found at {checkpoint_root}")
-    checkpoints = [
-        path
-        for path in checkpoint_root.iterdir()
-        if path.is_dir() and path.name.startswith("checkpoint-")
-    ]
-    if not checkpoints:
-        raise FileNotFoundError(f"No checkpoints found under {checkpoint_root}")
-    checkpoints.sort(key=lambda p: int(p.name.split("-")[-1]))
-    last_checkpoint = checkpoints[-1]
+def load_model_and_tokenizer(selected_checkpoint_name=None):
+    checkpoints = list_checkpoints()
+    checkpoint = None
+    if selected_checkpoint_name is not None:
+        for path in checkpoints:
+            if path.name == selected_checkpoint_name:
+                checkpoint = path
+                break
+    if checkpoint is None:
+        checkpoint = checkpoints[-1]
     model = AutoModelForCausalLM.from_pretrained(
-        last_checkpoint,
+        checkpoint,
         torch_dtype=torch.bfloat16,
     )
-    tokenizer = AutoTokenizer.from_pretrained(last_checkpoint)
-    return model, tokenizer, last_checkpoint
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    return model, tokenizer, checkpoint
 
 
 def main():
